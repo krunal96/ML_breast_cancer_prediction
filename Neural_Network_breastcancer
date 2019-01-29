@@ -1,0 +1,86 @@
+# Data
+data <- read.csv("C:/Users/KRUNAL/Desktop/xyz.csv", sep = ",")
+str(data)
+head(data)
+
+#year variable was not usefull for classification
+library(dplyr)
+data <- select(data, -YearOfDiagnosis)
+str(data)
+
+# #One-hot-encoding for  the transformation of categorical textual variables by dummyfying the data
+# library(modelr)
+# library(caret)
+# dmy <- dummyVars(" ~ .", data = data)
+# trsf <- data.frame(predict(dmy, newdata = data))
+# trsf 
+
+# Min-Max Normalization for  normalization of continuous variables converting into 0 to 1 form
+data$AgeAtDiagnosis<- (data$AgeAtDiagnosis - min(data$AgeAtDiagnosis))/(max(data$AgeAtDiagnosis) - min(data$AgeAtDiagnosis))
+data$ExtentOfCancer <- (data$ExtentOfCancer - min(data$ExtentOfCancer))/(max(data$ExtentOfCancer) - min(data$ExtentOfCancer))
+data$Nodes <- (data$Nodes - min(data$Nodes))/(max(data$Nodes)-min(data$Nodes))
+data$Tumorsize <- (data$Tumorsize - min(data$Tumorsize))/(max(data$Tumorsize)-min(data$Tumorsize))
+data$HistologicType <- (data$HistologicType - min(data$HistologicType))/(max(data$HistologicType)-min(data$HistologicType))
+data$SiteSpecificSurgery <- (data$SiteSpecificSurgery - min(data$SiteSpecificSurgery))/(max(data$SiteSpecificSurgery)-min(data$SiteSpecificSurgery))
+data$RegionalNodesPositive <- (data$RegionalNodesPositive - min(data$RegionalNodesPositive))/(max(data$RegionalNodesPositive) - min(data$RegionalNodesPositive))
+data
+
+#Load data
+input_data<- data[-23]
+input_data<- input_data[1:1000,]
+input_data<- as.matrix(input_data)
+xx <- as.matrix(data$survived == 1)
+output_data <- xx[c(0:1000),]
+output_data
+
+#Implementation of sigmoid function to calculate the INITIAL WEIGHT
+sigmoid <- function(input_data) 1 / (1 + exp(-input_data))
+
+w1 <- w1 - learn_rate * dw1
+w2 <- w2 - learn_rate * dw2
+
+
+#Implementation of sigmoid function to calculate the INITIAL WEIGHT
+feedforward <- function(input_data, w1, w2) {
+  z1 <- cbind(1, input_data) %*% w1
+  h <- sigmoid(z1)
+  z2 <- cbind(1, h) %*% w2
+  list(output = sigmoid(z2), h = h) }
+  
+
+#Implementation of simple backpropagation algorithm to update assigned intiail weight and bias
+backpropagate <- function(input_data, output_data, output_data_hat, w1, w2, h, learn_rate)
+    {
+     dw2 <- t(cbind(1, h)) %*% (output_data_hat - output_data)
+     dh  <- (output_data_hat - output_data) %*% t(w2[-1, , drop = FALSE])
+     dw1 <- t(cbind(1, input_data)) %*% (h * (1 - h) * dh)
+     list(w1 = w1, w2 = w2)
+    }  
+
+#Train neural network by feeding indput data, Outputdata, weights of nodes and bias
+train <- function(input_data, output_data, hidden, learn_rate, iterations)
+  {
+  d <- ncol(input_data) + 1
+  w1 <- matrix(rnorm(d * hidden), d, hidden)
+  k <- length(unique(output_data))
+  w2 <- as.matrix(rnorm(hidden + 1)*k, hidden + 1, k)
+  for (i in 1:iterations) 
+   {
+     feed_forward <- feedforward(input_data, w1, w2)
+     
+     back_propagate <- backpropagate(input_data, output_data,
+                        output_data_hat = ff$output,
+                        w1, w2,
+                        h = ff$h,
+                        learn_rate = learn_rate)
+     w1 <- back_propagate$w1; w2 <- back_propagate$w2
+   }
+  list(output = feed_forward$output, w1 = w1, w2 = w2)
+  }
+  
+#Calling neural network by passing actual parameters
+neuralnet <- train(input_data, output_data, hidden = 100, learn_rate = 1e-2, iterations =200)
+mean((neuralnet$output > 0.5) == output_data)
+
+
+neuralnet
