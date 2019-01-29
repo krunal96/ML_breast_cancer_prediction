@@ -1,0 +1,214 @@
+#Import required libraies
+library(klaR)
+library(caret)
+library(stringr)
+
+#for calculating running time
+start_time <- Sys.time()
+
+#Read data from CSV file
+allData <- read.csv('C:/Users/KRUNAL/Desktop/seer_dataset.csv')  #reading the original dataset file
+labels <- as.factor(allData[,17]) #grabbing the label class
+allFeatures <- allData[,-c(17)] #grabbing the remaining features
+continuousFeatures <- allFeatures[,c(1,2,3,4,5,6,7)] #grabbing the features having continous attributes
+
+#normalize the features (mean center and scale so that variance = 1 i.e. convert to z scores):
+continuousFeatures<-scale(continuousFeatures)
+
+#normalization can be done using Min-Max normalization also
+# Min-Max Normalization for  normalization for converting discrete and binary data into continuous data
+data$AgeAtDiagnosis<- (data$AgeAtDiagnosis - min(data$AgeAtDiagnosis))/(max(data$AgeAtDiagnosis) - min(data$AgeAtDiagnosis))
+data$ExtentOfCancer <- (data$ExtentOfCancer - min(data$ExtentOfCancer))/(max(data$ExtentOfCancer) - min(data$ExtentOfCancer))
+data$Nodes <- (data$Nodes - min(data$Nodes))/(max(data$Nodes)-min(data$Nodes))
+data$Tumorsize <- (data$Tumorsize - min(data$Tumorsize))/(max(data$Tumorsize)-min(data$Tumorsize))
+data$HistologicType <- (data$HistologicType - min(data$HistologicType))/(max(data$HistologicType)-min(data$HistologicType))
+data$SiteSpecificSurgery <- (data$SiteSpecificSurgery - min(data$SiteSpecificSurgery))/(max(data$SiteSpecificSurgery)-min(data$SiteSpecificSurgery))
+data$RegionalNodesPositive <- (data$RegionalNodesPositive - min(data$RegionalNodesPositive))/(max(data$RegionalNodesPositive) - min(data$RegionalNodesPositive))
+
+
+#convert the labels into numeric binary representation
+labels.n = rep(0,length(labels));
+labels.n[labels=="dead"] = -1;
+labels.n[labels=="alive"] = 1;
+labels = labels.n;
+rm(labels.n);
+
+#partitioning 80% of the random dataset for the training
+trainData <- createDataPartition(y=labels, p=.8, list=FALSE);
+trainFeatures <- continuousFeatures[trainData,];
+trainingLabels <- labels[trainData];
+
+
+#Of the remaining 20%, half become testing exmaples and half become validation examples
+remainingLabels <- labels[-trainData]
+remainingFeatures <- continuousFeatures[-trainData,]
+
+testingData <- createDataPartition(y=remainingLabels, p=.5, list=FALSE)
+testingLabels <- remainingLabels[testingData]
+testingFeatures <- remainingFeatures[testingData,]
+
+validationLabels <- remainingLabels[-testingData]
+validationFeatures <- remainingFeatures[-testingData,]
+
+
+
+#this function gets the accuracy matrix
+getAccuracy <- function(a,b,features,labels){
+  estimateFunction = features %*% a + b;
+  predictedLabels = rep(0,length(labels));
+  predictedLabels [estimateFunction < 0] = -1 ;
+  predictedLabels [estimateFunction >= 0] = 1 ;
+  
+  return(sum(predictedLabels == labels) / length(labels))
+  
+
+  true_positives <- 0
+  true_negatives <- 0
+  false_negatives <- 0
+  false_positives <- 0
+
+  for (i in 0:length(labels)){
+     if(predictedLabels[i]==1 & labels[i]==1){
+      true_positives <- true_positives + 1
+    }
+    if(predictedLabels[i]==-1 & labels[i]==0){
+      true_negatives <- true_negatives + 1
+    }
+   if(predictedLabels[i]==-1 & labels[i]==1){
+     false_negatives <- false_negatives + 1
+    }
+    if(predictedLabels[i]==1 & labels[i]==0){
+      false_positives <- false_positives + 1
+    }
+  }
+
+  
+  
+  
+}
+
+
+
+# setting up the SVM Classifiers parameters
+epochsTotal = 100;
+epochStepsTotal = 500;
+nStepsPerPlot = 30;
+evalidationSetSize = 50;
+
+c1 = 0.01
+c2 = 50
+
+valuesOfLambda = c(0.001, 0.01, 0.1, 1);
+bestAccuracy = 0;
+accMat <- matrix(NA, nrow = (epochStepsTotal/nStepsPerPlot)*epochsTotal+1, ncol = length(valuesOfLambda)); #vector for storing accuracy for each epoch
+accMatv <- matrix(NA, nrow = (epochStepsTotal/nStepsPerPlot)*epochsTotal+1, ncol = length(valuesOfLambda)); #accuracy on validation set
+for(i in 1:4){
+  lambda = valuesOfLambda[i];
+  accMatRow = 1;
+  accMatCol = i; #changes with the lambda
+  
+  #set a and b to 0 initially:
+  a = rep(0,ncol(continuousFeatures));
+  b = 0;
+  
+  stepIndex = 0;
+  
+  for (e in 1:epochsTotal){
+    
+    #divide into training and validation set for epoch (validation set size = evalidationSetSize -> 50 datapoints):
+    etrainData <- createDataPartition(y=trainingLabels, p=(1 - evalidationSetSize/length(trainingLabels)), list=FALSE)
+    
+    etrainFeatures <- trainFeatures[etrainData,]
+    eTrainLabels <- trainingLabels[etrainData]
+    
+    evalidationFeatures <- trainFeatures[-etrainData,]
+    evalidationLabels <- trainingLabels[-etrainData]
+    
+    #set the steplength (eta)
+    steplength = 1 / (e*c1 + c2);
+    
+    for (step in 1:epochStepsTotal){
+      stepIndex = stepIndex+1;
+      index = sample.int(nrow(etrainFeatures),1);
+      xk = etrainFeatures[index,];
+      yk = eTrainLabels[index];
+      
+      costFunction = yk * (a %*% xk + b);
+      
+      if(costFunction >= 1){
+        
+        a_dir = lambda * a;
+        a = a - steplength * a_dir;
+        
+      } else {
+        
+        a_dir = (lambda * a) - (yk * xk);
+        a = a - steplength * a_dir;
+        b_dir = -yk
+        b = b - (steplength * b_dir);
+        
+      }
+      
+      
+      #log the accuracy
+      if (stepIndex %% nStepsPerPlot == 1){
+        accMat[accMatRow,accMatCol] = getAccuracy(a,b,evalidationFeatures,evalidationLabels);
+        accMatv[accMatRow,accMatCol] = getAccuracy(a,b,validationFeatures,validationLabels);
+        accMatRow = accMatRow + 1;
+      }
+      
+    }
+    
+  }
+  
+  tempAccuracy = getAccuracy(a,b,validationFeatures,validationLabels)
+  print(str_c("accuracy = ", tempAccuracy," and best accurracy = ", bestAccuracy) )
+  if(tempAccuracy > bestAccuracy){
+    bestAccuracy = tempAccuracy
+    best_a = a;
+    best_b = b;
+    best_lambdaIndex = i;
+  }
+  
+}
+
+
+getAccuracy(best_a,best_b, testingFeatures, testingLabels)
+
+
+#Plot the accuracy during training
+colors = c("blue","green","red","yellow");
+xaxislabel = "Steps";
+yaxislabels = c("Accuracy on Random Epoch Validation Set","Accuracy on Validation Set");
+title="Accuracy based on Lambda values";
+ylims=c(0,1);
+
+stepValues = seq(1,15000,length=500)
+
+mats =  list(accMat,accMatv);
+
+
+for(j in 1:length(mats)){
+  
+  mat = mats[[j]];
+  
+  for(i in 1:4){
+    
+    if(i == 1){
+      plot(stepValues, mat[1:500,i], type = "l",xlim=c(0, 15000), ylim=ylims,
+           col=colors[i],xlab=xaxislabel,ylab=yaxislabels[j],main=title)
+    } else{
+      lines(stepValues, mat[1:500,i], type = "l",xlim=c(0, 15000), ylim=ylims,
+            col=colors[i],xlab=xaxislabel,ylab=yaxislabels[j],main=title)
+    }
+    Sys.sleep(1);
+  }
+  legend(x=10000,y=.5,legend=c("lambda=.001","lambda=.01","lambda=.1","lambda=1"),fill=colors);
+  
+}
+
+end_time <- Sys.time()
+
+
+time_taken<-end_time-start_time
+time_taken
