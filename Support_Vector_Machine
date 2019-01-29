@@ -174,41 +174,5 @@ for(i in 1:4){
 
 
 getAccuracy(best_a,best_b, testingFeatures, testingLabels)
-
-
-#Plot the accuracy during training
-colors = c("blue","green","red","yellow");
-xaxislabel = "Steps";
-yaxislabels = c("Accuracy on Random Epoch Validation Set","Accuracy on Validation Set");
-title="Accuracy based on Lambda values";
-ylims=c(0,1);
-
-stepValues = seq(1,15000,length=500)
-
-mats =  list(accMat,accMatv);
-
-
-for(j in 1:length(mats)){
-  
-  mat = mats[[j]];
-  
-  for(i in 1:4){
-    
-    if(i == 1){
-      plot(stepValues, mat[1:500,i], type = "l",xlim=c(0, 15000), ylim=ylims,
-           col=colors[i],xlab=xaxislabel,ylab=yaxislabels[j],main=title)
-    } else{
-      lines(stepValues, mat[1:500,i], type = "l",xlim=c(0, 15000), ylim=ylims,
-            col=colors[i],xlab=xaxislabel,ylab=yaxislabels[j],main=title)
-    }
-    Sys.sleep(1);
-  }
-  legend(x=10000,y=.5,legend=c("lambda=.001","lambda=.01","lambda=.1","lambda=1"),fill=colors);
-  
-}
-
-end_time <- Sys.time()
-
-
 time_taken<-end_time-start_time
 time_taken
